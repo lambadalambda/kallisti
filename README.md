@@ -26,6 +26,7 @@ Both need a domain with HTTPS: browsers allow the microphone only on secure
 pages. The quickest start, with Docker and the built-in server:
 
 ```sh
+umask 077
 printf 'DOMAIN=chat.example.org\nSUPERUSER_PASSWORD=%s\n' "$(openssl rand -hex 16)" > deploy/.env
 docker compose -f deploy/compose.yml up -d --remove-orphans
 ```
@@ -36,6 +37,7 @@ docker compose -f deploy/compose.yml up -d --remove-orphans
 - [Configuration](docs/configuration.md): all settings
 - [Updating](docs/updating.md), with upgrade notes
 - [Backups](docs/backups.md)
+- [Deployment guides](docs/deploy/README.md): Docker, systemd and Kubernetes
 
 ### What works where
 

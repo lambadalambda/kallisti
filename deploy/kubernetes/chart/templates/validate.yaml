@@ -1,0 +1,27 @@
+{{- $host := required "Set host to the public DNS name" .Values.host -}}
+{{- if not (regexMatch "^[a-z0-9][a-z0-9.-]*[a-z0-9]$" $host) -}}
+{{- fail "host must be a DNS name without a scheme or path" -}}
+{{- end -}}
+{{- range $name := list "app" "certSync" -}}
+  {{- $image := required (printf "Set images.%s to a published immutable image" $name) (index $.Values.images $name) -}}
+  {{- if regexMatch ":latest$" $image -}}
+    {{- fail (printf "images.%s must not use latest" $name) -}}
+  {{- end -}}
+  {{- $resources := index $.Values.resources $name -}}
+  {{- if not (and $resources.requests $resources.requests.cpu $resources.requests.memory $resources.limits $resources.limits.cpu $resources.limits.memory) -}}
+    {{- fail (printf "Set CPU and memory requests and limits for resources.%s" $name) -}}
+  {{- end -}}
+{{- end -}}
+{{- $caddyImage := required "Set images.caddy to a versioned Caddy image" .Values.images.caddy -}}
+{{- if regexMatch ":latest$" $caddyImage -}}
+  {{- fail "images.caddy must not use latest" -}}
+{{- end -}}
+{{- if not (and .Values.resources.caddy.requests .Values.resources.caddy.requests.cpu .Values.resources.caddy.requests.memory .Values.resources.caddy.limits .Values.resources.caddy.limits.cpu .Values.resources.caddy.limits.memory) -}}
+  {{- fail "Set CPU and memory requests and limits for resources.caddy" -}}
+{{- end -}}
+{{- $_ := required "Set storage.appSize in GiB after sizing the SQLite database and uploads" .Values.storage.appSize -}}
+{{- $_ = required "Set storage.caddySize in GiB for Caddy certificates" .Values.storage.caddySize -}}
+{{- $_ = required "Set superuserSecretName to an existing Secret with key password" .Values.superuserSecretName -}}
+{{- if not .Values.backup.confirmed -}}
+  {{- fail "Set backup.confirmed=true only after configuring off-cluster backups and testing a restore" -}}
+{{- end -}}

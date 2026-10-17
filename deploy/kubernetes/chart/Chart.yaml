@@ -1,0 +1,6 @@
+apiVersion: v2
+name: kallisti
+description: Single-replica Kallisti with Caddy and native Mumble on one address
+version: 0.1.0
+kubeVersion: '>=1.26.0-0'
+type: application

@@ -25,14 +25,14 @@ another machine: add `GOOS=linux GOARCH=amd64` (or `arm64`) for the server.
 ## Install
 
 On the server, as root, from the repository root (or a copy of `kallisti`,
-`apps/web/dist` and `deploy/kallisti.service`):
+`apps/web/dist` and `deploy/`):
 
 ```sh
 useradd --system --home /var/lib/kallisti --shell /usr/sbin/nologin kallisti
 mkdir -p /opt/kallisti
 cp kallisti /opt/kallisti/kallisti
 cp -r apps/web/dist /opt/kallisti/web
-cp deploy/kallisti.service /etc/systemd/system/
+install -o root -g root -m 0644 deploy/kallisti.service /etc/systemd/system/kallisti.service
 ```
 
 Settings go into `/etc/kallisti.env` (readable by root only: it holds the
@@ -45,6 +45,8 @@ WEB_DIR=/opt/kallisti/web
 DB_PATH=/var/lib/kallisti/kallisti.db
 UPLOAD_DIR=/var/lib/kallisti/uploads
 BACKUP_DIR=/var/lib/kallisti/backups
+MUMBLE_CERT_FILE=/var/lib/kallisti/mumble-tls/current/mumble.crt
+MUMBLE_KEY_FILE=/var/lib/kallisti/mumble-tls/current/mumble.key
 LISTEN_PORT=8080
 MUMBLED_SUPERUSER_PASSWORD=choose-a-long-password
 ```
@@ -68,17 +70,23 @@ service file.
 
 ## HTTPS with Caddy
 
-`/etc/caddy/Caddyfile`:
+Install Caddy with its systemd service, then copy the supplied configuration
+and replace `chat.example.org` with your domain before starting it:
 
-```
-chat.example.org {
-	reverse_proxy 127.0.0.1:8080
-}
+```sh
+install -o root -g root -m 0644 deploy/systemd/Caddyfile /etc/caddy/Caddyfile
+# Edit /etc/caddy/Caddyfile to use your domain.
+caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+systemctl enable --now caddy
+systemctl reload caddy # if it was already running
 ```
 
-Caddy gets the certificate by itself. WebSockets (the voice and chat
-connection) pass through without extra settings. Kallisti listens on all
-addresses: block port 8080 in the firewall, so only the proxy reaches it.
+Caddy gets the certificate by itself. Its configuration adds HTTPS security
+headers and limits uploads to 11 MB (for the default 10 MB file limit). If
+you increase `UPLOAD_MAX_MB`, also increase the limit in the Caddyfile.
+WebSockets (the voice and chat connection) pass through without extra
+settings. Kallisti listens on all addresses: block port 8080 in the
+firewall, so only the proxy reaches it.
 
 Kallisti needs its own (sub)domain: it cannot run under a path such as
 `example.org/chat`.
@@ -122,20 +130,29 @@ With the built-in server, Mumble clients and the desktop app connect to port
 64738 (TCP and UDP) directly, not through the proxy: open it in the
 firewall.
 
-They warn about a self-signed certificate once. To use the web certificate
-instead, copy Caddy's files for the domain where Kallisti can read them and
-set `MUMBLE_CERT_FILE` and `MUMBLE_KEY_FILE`. Kallisti reloads them when they
-change. Caddy keeps its files readable by its own user only, so copy them
-regularly, for example with a daily systemd timer that runs:
+Until Caddy gets a certificate, native clients see Kallisti's saved
+self-signed certificate. Install the supplied timer to copy valid renewals
+for the Mumble port without giving Kallisti access to Caddy's private store:
 
 ```sh
-src=/var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/chat.example.org
-install -o kallisti -m 600 "$src/chat.example.org.crt" /var/lib/kallisti/mumble.crt
-install -o kallisti -m 600 "$src/chat.example.org.key" /var/lib/kallisti/mumble.key
+install -o root -g root -m 0755 deploy/docker/sync-certificate.sh /opt/kallisti/sync-certificate
+install -o root -g root -m 0644 deploy/systemd/kallisti-certificate.service /etc/systemd/system/
+install -o root -g root -m 0644 deploy/systemd/kallisti-certificate.timer /etc/systemd/system/
+printf 'DOMAIN=chat.example.org\n' > /etc/kallisti-cert.env
+chmod 600 /etc/kallisti-cert.env
+systemctl daemon-reload
+systemctl enable --now kallisti-certificate.timer
+systemctl start kallisti-certificate.service # after Caddy has HTTPS
+journalctl -u kallisti-certificate.service -n 30
 ```
 
-(If Caddy got the certificate from ZeroSSL, the folder is
-`acme.zerossl.com-v2-dv90`.)
+The root-only service checks every five minutes and only writes into
+`/var/lib/kallisti`. It fails if Caddy has not issued a matching certificate
+yet; the next timer run retries. Caddy's default systemd data path is
+`/var/lib/caddy/.local/share/caddy`; if your installation uses another path,
+set `CADDY_DATA_DIR` in `/etc/kallisti-cert.env`. Keep the timer's `DOMAIN`
+matched to the name in `/etc/caddy/Caddyfile`. See the
+[systemd deployment guide](deploy/systemd.md) for checks and rollback.
 
 ## Updates and backups
 

@@ -14,6 +14,10 @@ ExecStart=/opt/kallisti/kallisti
 WorkingDirectory=/var/lib/kallisti
 Restart=on-failure
 RestartSec=5
+TimeoutStopSec=20s
+UMask=0077
+CapabilityBoundingSet=
+AmbientCapabilities=
 # The database, uploads, backups and the Mumble certificate live here.
 # Data paths elsewhere (DB_PATH, UPLOAD_DIR, BACKUP_DIR, CERT_DIR) need
 # ReadWritePaths= (ProtectSystem=strict).
@@ -27,8 +31,15 @@ PrivateDevices=yes
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectProc=invisible
+ProcSubset=pid
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 SystemCallArchitectures=native

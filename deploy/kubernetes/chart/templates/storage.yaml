@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-app
+  annotations:
+    helm.sh/resource-policy: keep # Uninstalling the chart must not delete the SQLite database.
+spec:
+  accessModes: [ReadWriteOnce]
+  {{- if .Values.storage.className }}
+  storageClassName: {{ .Values.storage.className | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.storage.appSize | quote }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-caddy
+  annotations:
+    helm.sh/resource-policy: keep # Retain ACME account and certificates on uninstall.
+spec:
+  accessModes: [ReadWriteOnce]
+  {{- if .Values.storage.className }}
+  storageClassName: {{ .Values.storage.className | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.storage.caddySize | quote }}

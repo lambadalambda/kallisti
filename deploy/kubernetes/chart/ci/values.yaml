@@ -1,0 +1,21 @@
+# Render/lint fixture only. Invalid images and a nonexistent Secret prevent installation.
+host: chat.example.org
+images:
+  app: example.invalid/kallisti@sha256:0000000000000000000000000000000000000000000000000000000000000000
+  certSync: example.invalid/kallisti-cert-sync@sha256:0000000000000000000000000000000000000000000000000000000000000000
+storage:
+  appSize: 10Gi
+  caddySize: 1Gi
+superuserSecretName: test-secret-not-created
+backup:
+  confirmed: true  # fixture bypasses the gate; no backup is configured
+resources:
+  app:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {cpu: '1', memory: 512Mi}
+  caddy:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {cpu: 500m, memory: 256Mi}
+  certSync:
+    requests: {cpu: 10m, memory: 32Mi}
+    limits: {cpu: 100m, memory: 128Mi}

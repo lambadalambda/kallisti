@@ -2,16 +2,29 @@
 # text channels and uploads; voice goes to your Murmur. Set DOMAIN and
 # MUMBLE_HOST (for example in deploy/.env), then:
 #   docker compose -f deploy/compose.murmur.yml up -d
+name: deploy
 # Murmur sees every web user at this server's address: turn off Murmur's
 # autoban (autobanAttempts=0 in murmur.ini), or it may ban Kallisti.
 services:
   kallisti:
     build: ..
     restart: unless-stopped
+    stop_grace_period: 20s
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
     environment:
-      ALLOWED_ORIGINS: "https://${DOMAIN}"
+      ALLOWED_ORIGINS: "https://${DOMAIN:?Set DOMAIN in deploy/.env}"
       TRUST_FORWARDED_FOR: "1" # Caddy sets X-Forwarded-For
-      MUMBLE_HOST: "${MUMBLE_HOST}"
+      MUMBLE_HOST: "${MUMBLE_HOST:?Set MUMBLE_HOST in deploy/.env}"
       MUMBLE_PORT: "${MUMBLE_PORT:-64738}"
       # Most Murmur servers have a self-signed certificate.
       MUMBLE_INSECURE_TLS: "${MUMBLE_INSECURE_TLS:-1}"
@@ -22,19 +35,25 @@ services:
       - kallisti-data:/data # database, uploads
 
   caddy:
-    image: docker.io/library/caddy:2
+    image: docker.io/library/caddy:2.11.3-alpine
     restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
     ports:
       - "80:80"
       - "443:443"
     environment:
-      DOMAIN: "${DOMAIN}"
+      DOMAIN: "${DOMAIN:?Set DOMAIN in deploy/.env}"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
+    tmpfs:
+      - /tmp
     depends_on:
-      - kallisti
+      kallisti:
+        condition: service_healthy
 
 volumes:
   kallisti-data:

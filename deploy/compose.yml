@@ -2,15 +2,28 @@
 # server, text channels) and Caddy for HTTPS. Set DOMAIN (for example in
 # deploy/.env), then:
 #   docker compose -f deploy/compose.yml up -d
+name: deploy
 services:
   kallisti:
     build: ..
     restart: unless-stopped
+    stop_grace_period: 20s
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
     ports:
       - "64738:64738/tcp" # Mumble clients and the Kallisti desktop app
       - "64738:64738/udp"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
     environment:
-      ALLOWED_ORIGINS: "https://${DOMAIN}"
+      ALLOWED_ORIGINS: "https://${DOMAIN:?Set DOMAIN in deploy/.env}"
       TRUST_FORWARDED_FOR: "1" # Caddy sets X-Forwarded-For
       TEXT_CHANNELS: "general"
       SERVER_NAME: "${SERVER_NAME:-Kallisti}"
@@ -19,27 +32,48 @@ services:
       # keep the password from an earlier start.
       MUMBLED_SUPERUSER_PASSWORD: "${SUPERUSER_PASSWORD:-}"
       BACKUP_DIR: "/data/backups" # daily database backups, the newest 7 kept
-      # A certificate for the Mumble port (see docs/configuration.md), for example copied
-      # from the proxy into the data volume. Unset: self-signed.
-      MUMBLE_CERT_FILE: "${MUMBLE_CERT_FILE:-}"
-      MUMBLE_KEY_FILE: "${MUMBLE_KEY_FILE:-}"
+      # Before Caddy gets its first certificate, Kallisti uses its saved self-signed one.
+      MUMBLE_CERT_FILE: "${MUMBLE_CERT_FILE:-/data/mumble-tls/current/mumble.crt}"
+      MUMBLE_KEY_FILE: "${MUMBLE_KEY_FILE:-/data/mumble-tls/current/mumble.key}"
     volumes:
       - kallisti-data:/data # database, uploads, server certificate
 
   caddy:
-    image: docker.io/library/caddy:2
+    image: docker.io/library/caddy:2.11.3-alpine
     restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
     ports:
       - "80:80"
       - "443:443"
     environment:
-      DOMAIN: "${DOMAIN}"
+      DOMAIN: "${DOMAIN:?Set DOMAIN in deploy/.env}"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
+    tmpfs:
+      - /tmp
     depends_on:
-      - kallisti
+      kallisti:
+        condition: service_healthy
+
+  cert-sync:
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile.cert-sync
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      DOMAIN: "${DOMAIN:?Set DOMAIN in deploy/.env}"
+    volumes:
+      - caddy-data:/caddy-data:ro
+      - kallisti-data:/app-data
+    depends_on:
+      - caddy
 
 volumes:
   kallisti-data:

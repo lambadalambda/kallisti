@@ -1,0 +1,10 @@
+[Unit]
+Description=Check Caddy's certificate for the Kallisti Mumble port
+
+[Timer]
+OnCalendar=*:0/5
+Persistent=true
+Unit=kallisti-certificate.service
+
+[Install]
+WantedBy=timers.target

@@ -2,7 +2,9 @@
 
 The compose files in `deploy/` run Kallisti and Caddy, which gets the HTTPS
 certificate by itself. Browsers allow the microphone only on secure pages,
-so Kallisti needs a domain with HTTPS.
+so Kallisti needs a domain with HTTPS. Run the commands below from the
+repository root. Existing installations should follow
+[the upgrade instructions](updating.md#docker-or-podman) to keep their data.
 
 ## Built-in Mumble server (recommended)
 
@@ -10,6 +12,7 @@ so Kallisti needs a domain with HTTPS.
 and Caddy:
 
 ```sh
+umask 077
 printf 'DOMAIN=chat.example.org\nSUPERUSER_PASSWORD=%s\n' "$(openssl rand -hex 16)" > deploy/.env
 docker compose -f deploy/compose.yml up -d --remove-orphans
 ```
@@ -19,27 +22,24 @@ docker compose -f deploy/compose.yml up -d --remove-orphans
   firewall.
 - `SuperUser` is the admin: log in with the "Log in" tab (or a Mumble
   client) and `SUPERUSER_PASSWORD`. Admins make moderators in a user's menu.
-- Mumble clients warn about the self-signed certificate once. To avoid
-  that, give the server your web certificate (`MUMBLE_CERT_FILE`, see
-  [configuration](configuration.md#the-built-in-mumble-server)). Caddy keeps
-  it in its own volume, readable by root only: copy it into Kallisti's
-  volume regularly, for example daily with:
-
-  ```sh
-  d=/data/caddy/certificates/acme-v02.api.letsencrypt.org-directory/chat.example.org
-  cd deploy
-  docker compose exec -T caddy cat $d/chat.example.org.crt | docker compose exec -T kallisti sh -c 'cat > /data/mumble.crt'
-  docker compose exec -T caddy cat $d/chat.example.org.key | docker compose exec -T kallisti sh -c 'umask 077; cat > /data/mumble.key'
-  ```
-
-  and set `MUMBLE_CERT_FILE=/data/mumble.crt` and
-  `MUMBLE_KEY_FILE=/data/mumble.key` in `deploy/.env`.
+- Caddy gets the web certificate automatically. The `cert-sync` service
+  copies a validated certificate and key to Kallisti's volume on startup
+  and checks for renewals every minute. Until Caddy has a certificate,
+  native Mumble clients see Kallisti's self-signed one. Check
+  `docker compose -f deploy/compose.yml logs cert-sync` if that
+  warning persists after HTTPS is working. The copier needs read-only
+  access to Caddy's private key and write access to Kallisti's data; keep
+  Docker access restricted to trusted administrators.
 - Behind a reverse proxy that already runs in Docker, use
   `deploy/compose.behind-proxy.yml`: set `PROXY_NETWORK` to the proxy's
   Docker network and point the proxy at `kallisti:8080`. This file has its
   own project name (`kallisti`), so it gets a new, empty volume
   (`kallisti_kallisti-data`): when you change from `compose.yml`, copy the
-  data over first.
+  data over first. The external proxy must set the client's forwarded IP
+  itself. Its certificate is not available to `cert-sync`: Mumble uses the
+  self-signed certificate unless you supply a certificate and key under
+  `/data` and set `MUMBLE_CERT_FILE` and `MUMBLE_KEY_FILE` in the Compose
+  environment.
 - Coming from Murmur: `--remove-orphans` stops an old Murmur container (it
   would keep port 64738). Murmur's registrations, channels and ACLs are not
   taken over.
@@ -49,10 +49,14 @@ docker compose -f deploy/compose.yml up -d --remove-orphans
 `deploy/compose.murmur.yml` runs Kallisti and Caddy, without a Mumble port:
 
 ```sh
+umask 077
 printf 'DOMAIN=chat.example.org\nMUMBLE_HOST=voice.example.org\n' > deploy/.env
 docker compose -f deploy/compose.murmur.yml up -d
 ```
 
+- The Murmur variant keeps the previous default of accepting self-signed
+  certificates. Set `MUMBLE_INSECURE_TLS=0` in `deploy/.env` if Murmur has
+  a trusted certificate and you want Kallisti to verify it.
 - Each web user gets their own Mumble session on your Murmur, made by the
   Kallisti server. Murmur therefore sees all web users at the Kallisti
   server's address: set `autobanAttempts=0` in `murmur.ini`, or Murmur may
@@ -75,7 +79,10 @@ web and native, so they all share one IP; Docker, podman with a root
 network, or pasta keep it.
 
 On Fedora and other SELinux systems, add `,z` to the Caddyfile mount
-(`./Caddyfile:/etc/caddy/Caddyfile:ro,z`), or Caddy cannot read it.
+(`./Caddyfile:/etc/caddy/Caddyfile:ro,z`), or Caddy cannot read it. If you
+raise `UPLOAD_MAX_MB` above 10, also raise the 11 MB request-body limit in
+`deploy/Caddyfile`. For ports, volumes, backups and checks, see the
+[Docker deployment guide](deploy/docker.md).
 
 ## Updates
 

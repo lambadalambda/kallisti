@@ -1,0 +1,18 @@
+# This chart is a template, not an installable default. See deploy/kubernetes/README.md.
+host: ""
+images:
+  app: ""
+  certSync: ""
+  caddy: docker.io/library/caddy:2.11.3-alpine
+storage:
+  className: ""  # empty uses the cluster's default StorageClass
+  appSize: ""
+  caddySize: ""
+superuserSecretName: ""  # pre-create a Secret with key 'password'; never commit it
+backup:
+  confirmed: false  # set true only after off-cluster backups and a restore test
+resources:
+  app: {}
+  caddy: {}
+  certSync: {}
+serviceAnnotations: {}  # provider-specific LoadBalancer settings, if needed

@@ -1,0 +1,15 @@
+{$DOMAIN} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+	request_body {
+		max_size 11MB
+	}
+	# No access logs: file URLs contain bearer keys.
+	reverse_proxy 127.0.0.1:8080
+}

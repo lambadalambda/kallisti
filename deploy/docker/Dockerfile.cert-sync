@@ -1,0 +1,5 @@
+FROM docker.io/library/alpine:3.21
+RUN apk add --no-cache openssl
+COPY deploy/docker/sync-certificate.sh /usr/local/bin/sync-certificate
+RUN chmod 0755 /usr/local/bin/sync-certificate
+ENTRYPOINT ["/usr/local/bin/sync-certificate"]

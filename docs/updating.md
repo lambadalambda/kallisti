@@ -23,6 +23,12 @@ Uploads and the server certificate do not change at updates.
 
 ## Docker or Podman
 
+The Compose files stay at `deploy/compose*.yml` and read `deploy/.env`.
+Keep the same project name (`deploy` by default, or `kallisti` for
+`compose.behind-proxy.yml`) and never remove the data volume. If you
+previously used `-p` or `COMPOSE_PROJECT_NAME`, keep using that name.
+The Murmur variant still accepts self-signed certificates by default.
+
 ```sh
 git pull
 docker compose -f deploy/compose.yml build --pull
@@ -51,8 +57,15 @@ journalctl -u kallisti -f
 
 Stop first: a running program cannot be replaced on every system. Replace
 the web app folder as a whole: the new `index.html` must come with the new
-program. When `deploy/kallisti.service` changed, copy it again and run
-`systemctl daemon-reload`.
+program. When the service or certificate timer changes, copy the changed files from
+`deploy/kallisti.service` and any changed units in `deploy/systemd/` to
+`/etc/systemd/system/`, and the shared copier from
+`deploy/docker/sync-certificate.sh` to `/opt/kallisti/sync-certificate`
+(mode 0755, owned by root); then run `systemctl daemon-reload`. Compare
+`deploy/systemd/Caddyfile` with your installed Caddyfile before merging
+changes: do not overwrite your real domain with the example hostname.
+Validate it with `caddy validate --config /etc/caddy/Caddyfile --adapter
+caddyfile` before `systemctl reload caddy`.
 
 ## Going back
 

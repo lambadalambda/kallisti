@@ -1,4 +1,16 @@
-# HTTPS with an automatic certificate. The microphone needs a secure context.
+# Caddy obtains and renews HTTPS certificates; Mumble's TCP/UDP port bypasses this proxy.
 {$DOMAIN} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+	request_body {
+		max_size 11MB
+	}
+	# Access logs are off: file URLs contain bearer keys.
 	reverse_proxy kallisti:8080
 }

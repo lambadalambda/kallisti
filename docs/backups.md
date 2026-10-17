@@ -17,7 +17,10 @@
   ```
 - With the built-in server, its certificate (`cert.pem` and `key.pem` in
   `CERT_DIR`). Without it Mumble clients see a new server and warn.
-- Your settings (the compose `.env`, or `/etc/kallisti.env`).
+- Your settings (the compose `.env`, or `/etc/kallisti.env`; the systemd
+  certificate timer also uses `/etc/kallisti-cert.env`). When using Caddy,
+  retain its data volume or directory if you need its ACME account and web
+  certificate; the copied Mumble certificate can be restored from Caddy.
 
 ## Database backups
 

@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-caddy
+  labels:
+    app.kubernetes.io/name: kallisti
+data:
+  Caddyfile: |
+{{ .Files.Get "files/Caddyfile" | indent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}
+  {{- with .Values.serviceAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Local
+  selector:
+    app.kubernetes.io/name: kallisti
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+    - name: https
+      port: 443
+      targetPort: https
+      protocol: TCP
+    - name: mumble-tcp
+      port: 64738
+      targetPort: mumble-tcp
+      protocol: TCP
+    - name: mumble-udp
+      port: 64738
+      targetPort: mumble-udp
+      protocol: UDP

@@ -1,0 +1,16 @@
+# Replace the hostname with the public DNS name before installing this file.
+chat.example.org {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+	request_body {
+		max_size 11MB
+	}
+	# Access logs are off: file URLs contain bearer keys.
+	reverse_proxy 127.0.0.1:8080
+}
